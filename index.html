@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>JARVIS</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#04060c;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+  #c{position:fixed;inset:0;display:block}
+  .hud{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;
+    justify-content:space-between;padding:26px}
+  .top{display:flex;justify-content:space-between;align-items:flex-start}
+  .tag{font-size:11px;letter-spacing:3.5px;color:#3d5a7a;font-weight:700}
+  .tag b{color:#22d3ee;font-weight:700}
+  .statut{margin-top:6px;font-size:13px;letter-spacing:1.6px;color:#7dd3fc;font-weight:600}
+  .dots{display:flex;gap:5px;margin-top:10px}
+  .dots i{width:6px;height:6px;border-radius:50%;background:#1e3a5f;display:block}
+  .dots i.on{background:#22d3ee;box-shadow:0 0 8px #22d3ee}
+
+  .bas{display:flex;flex-direction:column;gap:14px;align-items:center}
+  .bulle{max-width:min(680px,90vw);text-align:center;font-size:17px;line-height:1.55;
+    color:#e2f2ff;min-height:54px;transition:.25s;padding:0 6px}
+  .bulle .toi{color:#7dd3fc;font-size:12px;letter-spacing:2.5px;font-weight:700;display:block;margin-bottom:6px}
+  .bulle .moi{color:#f5c344;font-size:12px;letter-spacing:2.5px;font-weight:700;display:block;margin-bottom:6px}
+  .micro{pointer-events:auto;width:78px;height:78px;border-radius:50%;border:1.5px solid #1e3a5f;
+    background:radial-gradient(circle at 50% 40%,#0d1c30,#060a12);color:#3d5a7a;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.25s;
+    box-shadow:0 0 0 0 rgba(34,211,238,0)}
+  .micro svg{width:30px;height:30px}
+  .micro.on{border-color:#22d3ee;color:#22d3ee;box-shadow:0 0 34px -4px rgba(34,211,238,.55)}
+  .aide{font-size:11.5px;letter-spacing:2.2px;color:#2f4a66}
+  .barre{width:min(320px,70vw);height:2px;background:#12233a;border-radius:2px;overflow:hidden}
+  .barre i{display:block;height:100%;width:0;background:linear-gradient(90deg,#22d3ee,#f5c344);transition:width .08s}
+  .warn{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);max-width:82vw;
+    padding:20px 24px;border-radius:14px;background:#0d1626;border:1px solid #1e3a5f;
+    color:#cbd5e1;font-size:14px;line-height:1.6;text-align:center;display:none;z-index:9}
+
+  .rouage{position:fixed;top:20px;right:20px;width:40px;height:40px;border-radius:50%;
+    border:1px solid #1e3a5f;background:rgba(8,14,24,.7);color:#3d5a7a;display:flex;
+    align-items:center;justify-content:center;cursor:pointer;z-index:6;pointer-events:auto}
+  .rouage svg{width:19px;height:19px}
+  .panneau{position:fixed;inset:0;background:rgba(3,6,12,.93);z-index:8;display:none;
+    padding:26px;overflow-y:auto;pointer-events:auto}
+  .panneau.on{display:block}
+  .panneau h2{font-size:15px;letter-spacing:3px;color:#7dd3fc;margin-bottom:6px;font-weight:800}
+  .panneau p{font-size:13px;color:#94a3b8;line-height:1.6;margin-bottom:16px}
+  .panneau label{display:block;font-size:11px;letter-spacing:2px;color:#5b7ea3;margin:16px 0 7px;font-weight:700}
+  .panneau input[type=file]{background:#0b1524;color:#94a3b8;cursor:pointer}
+  .panneau select,.panneau input{width:100%;padding:13px;border-radius:10px;border:1px solid #1e3a5f;
+    background:#0b1524;color:#e2f2ff;font-size:14px;font-family:inherit}
+  .panneau .btns{display:flex;gap:10px;margin-top:24px;flex-wrap:wrap}
+  .panneau button{flex:1;min-width:130px;padding:14px;border-radius:10px;font-size:13px;font-weight:800;
+    letter-spacing:1.5px;cursor:pointer;font-family:inherit}
+  .p-ok{background:#22d3ee;border:none;color:#04121c}
+  .p-nn{background:transparent;border:1px solid #334155;color:#94a3b8}
+  .info{font-size:12px;color:#5b7ea3;line-height:1.7;margin-top:16px;
+    border-left:2px solid #1e3a5f;padding-left:12px}
+  .info b{color:#7dd3fc}
+  .cle-ok{color:#4ade80 !important;font-weight:700}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="hud">
+  <div class="top">
+    <div>
+      <div class="tag">J A R V I S</div>
+      <div class="statut" id="statut">VEILLE</div>
+      <div class="dots" id="dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="tag" style="text-align:right" id="heure">--:--</div>
+  </div>
+
+  <div class="bas">
+    <div class="bulle" id="bulle"></div>
+    <div class="barre"><i id="niveau"></i></div>
+    <button class="micro" id="micro" aria-label="micro">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/>
+        <line x1="12" y1="17.5" x2="12" y2="21.5"/><line x1="8.5" y1="21.5" x2="15.5" y2="21.5"/>
+      </svg>
+    </button>
+    <div class="aide" id="aide">APPUIE SUR LE MICRO ET PARLE</div>
+  </div>
+</div>
+
+
+<div class="rouage" id="rouage" title="Réglages">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+    <circle cx="12" cy="12" r="3.2"/>
+    <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>
+  </svg>
+</div>
+
+<div class="panneau" id="panneau">
+  <h2>⚙️ RÉGLAGES DE JARVIS</h2>
+  <p>Sans clé, JARVIS répond avec un moteur simple.<br>Avec une clé, il devient <b style="color:#4ade80">vraiment intelligent</b>.</p>
+
+  <label>FOURNISSEUR D'IA</label>
+  <select id="fournisseur">
+    <option value="groq">Groq — Qwen 3.8 (rapide, recommandé)</option>
+    <option value="mistral">Mistral (gratuit, français)</option>
+    <option value="openrouter">OpenRouter</option>
+  </select>
+
+  <label>TA CLÉ API <span id="etatcle"></span></label>
+  <input id="cle" type="password" placeholder="colle ta clé ici" autocomplete="off">
+
+  <label>MES INFORMATIONS <span id="etatctx"></span></label>
+  <textarea id="tctx" placeholder="OU colle ici le texte de tes informations (appui long → Coller)"
+    style="width:100%;height:96px;padding:12px;border-radius:10px;border:1px solid #1e3a5f;
+    background:#0b1524;color:#e2f2ff;font-size:12px;font-family:inherit;resize:vertical"></textarea>
+  <button class="p-nn" id="bctx" style="margin-top:10px;width:100%">ENREGISTRER LE TEXTE COLLÉ</button>
+  <p style="font-size:11.5px;color:#5b7ea3;margin:10px 0 4px">— ou charge un fichier —</p>
+  <input id="fctx" type="file" accept=".txt,.md" style="padding:10px;font-size:12px">
+  <p style="font-size:11.5px;color:#5b7ea3;margin-top:8px;line-height:1.6">
+    Charge le fichier <b>contexte_jacques.txt</b> : JARVIS connaîtra ta classe, tes projets,
+    ta famille. Le fichier reste dans TON téléphone.</p>
+
+  <label>VOIX</label>
+  <select id="voix">
+    <option value="">Voix française du téléphone</option>
+  </select>
+
+  <div class="btns">
+    <button class="p-ok" id="bsave">ENREGISTRER</button>
+    <button class="p-nn" id="bclose">FERMER</button>
+    <button class="p-nn" id="btest" style="border-color:#22d3ee;color:#7dd3fc">TESTER LA CLÉ</button>
+  </div>
+  <div id="resTest" class="info" style="display:none"></div>
+
+  <div class="info">
+    <b>Où trouver une clé GRATUITE ?</b><br>
+    • <b>Groq</b> → console.groq.com/keys (gratuit, sans carte)<br>
+    • <b>Mistral</b> → console.mistral.ai (gratuit, français)<br><br>
+    <b>Ta clé reste dans TON téléphone.</b> Elle n'est jamais publiée, jamais partagée.
+    Tu peux l'effacer en vidant le champ.
+  </div>
+</div>
+
+<div class="warn" id="warn"></div>
+
+<script>
+/* ══════════════════ ORBE JARVIS ══════════════════ */
+const cv = document.getElementById('c'), x = cv.getContext('2d');
+let W, H, CX, CY, R;
+function resize(){
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = W*dpr; cv.height = H*dpr;
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  x.setTransform(dpr,0,0,dpr,0,0);
+  CX = W/2; CY = H/2 - 40; R = Math.min(W,H)*0.26;
+}
+addEventListener('resize', resize); resize();
+
+/* etat */
+const E = { niveau:0, cible:0, phase:0, etat:'veille', parle:0 };
+const COUL = {
+  veille:     {a:'#1b6ea8', b:'#22d3ee', halo:0.20},
+  ecoute:     {a:'#22d3ee', b:'#7dd3fc', halo:0.42},
+  reflexion:  {a:'#7c3aed', b:'#a78bfa', halo:0.34},
+  parole:     {a:'#f5c344', b:'#fbbf24', halo:0.46}
+};
+const particules = Array.from({length:150}, () => ({
+  r: 0.55 + Math.random()*1.6,
+  a: Math.random()*Math.PI*2,
+  v: 0.0012 + Math.random()*0.0055,
+  d: 0.52 + Math.random()*0.75,
+  s: Math.random()*Math.PI*2
+}));
+
+function dessine(t){
+  const c = COUL[E.etat] || COUL.veille;
+  E.phase += 0.014;
+  E.niveau += (E.cible - E.niveau) * 0.22;
+  if (E.etat === 'parole') E.parle = Math.min(1, E.parle + 0.10);
+  else E.parle *= 0.90;
+  const amp = Math.min(1, E.niveau*1.7);
+  const pulse = 0.5 + 0.5*Math.sin(E.phase*1.5);
+
+  x.clearRect(0,0,W,H);
+
+  /* voile */
+  const g = x.createRadialGradient(CX,CY,0,CX,CY,R*3.1);
+  g.addColorStop(0, `rgba(12,26,44,${0.5 + c.halo*0.7})`);
+  g.addColorStop(0.45,'rgba(5,10,20,0.55)');
+  g.addColorStop(1,'rgba(2,4,9,0)');
+  x.fillStyle = g; x.fillRect(0,0,W,H);
+
+  /* halo reactif */
+  const hr = R*(1.55 + amp*1.1 + pulse*0.06 + E.parle*0.22);
+  const hg = x.createRadialGradient(CX,CY,R*0.3,CX,CY,hr);
+  hg.addColorStop(0, `rgba(34,211,238,${0.09 + amp*0.16 + E.parle*0.10})`);
+  hg.addColorStop(0.6,`rgba(56,189,248,${0.035 + amp*0.05})`);
+  hg.addColorStop(1,'rgba(0,0,0,0)');
+  x.fillStyle = hg; x.beginPath(); x.arc(CX,CY,hr,0,7); x.fill();
+
+  /* ondes concentriques (reaction a la voix) */
+  for (let i=0;i<4;i++){
+    const k = (E.phase*0.55 + i*0.25) % 1;
+    const rr = R*(1.00 + k*(0.95 + amp*0.85));
+    x.beginPath(); x.arc(CX,CY,rr,0,7);
+    x.strokeStyle = `rgba(34,211,238,${(1-k)*(0.16 + amp*0.34)})`;
+    x.lineWidth = 1.1 + amp*1.5; x.stroke();
+  }
+
+  /* anneau segments rotatif */
+  for (let ring=0; ring<3; ring++){
+    const rr = R*(1.16 + ring*0.16);
+    const n = 44 + ring*16;
+    const sp = (ring%2? -1:1) * (0.0016 + ring*0.0009) * (1 + amp*1.6);
+    x.save(); x.translate(CX,CY); x.rotate(E.phase*sp*60);
+    for (let i=0;i<n;i++){
+      const a = (i/n)*Math.PI*2;
+      const len = R*(0.028 + 0.022*Math.sin(i*1.7 + E.phase*2.2 + ring) + amp*0.05);
+      x.beginPath();
+      x.moveTo(Math.cos(a)*rr, Math.sin(a)*rr);
+      x.lineTo(Math.cos(a)*(rr+len), Math.sin(a)*(rr+len));
+      x.strokeStyle = `rgba(${ring===1?'125,211,252':'34,211,238'},${0.14 + 0.30*Math.abs(Math.sin(i*0.6+E.phase+ring)) + amp*0.3})`;
+      x.lineWidth = 1.2 + amp*1.4; x.lineCap='round'; x.stroke();
+    }
+    x.restore();
+  }
+
+  /* particules orbitales */
+  for (const p of particules){
+    p.a += p.v*(1 + amp*3.4);
+    const dr = R*(p.d + Math.sin(E.phase*1.1 + p.s)*0.055 + amp*0.16);
+    const px = CX + Math.cos(p.a)*dr, py = CY + Math.sin(p.a)*dr*0.93;
+    const al = 0.20 + 0.42*Math.abs(Math.sin(E.phase + p.s)) + amp*0.35;
+    x.beginPath(); x.arc(px,py,p.r*(1+amp*0.9),0,7);
+    x.fillStyle = `rgba(160,230,255,${Math.min(1,al)})`; x.fill();
+  }
+
+  /* noyau */
+  const nr = R*(0.60 + amp*0.15 + pulse*0.018 + E.parle*0.06);
+  const ng = x.createRadialGradient(CX,CY,nr*0.05,CX,CY,nr);
+  ng.addColorStop(0, `rgba(255,255,255,${0.72 + amp*0.2})`);
+  ng.addColorStop(0.30, c.b);
+  ng.addColorStop(0.72, c.a);
+  ng.addColorStop(1, 'rgba(6,14,26,0.05)');
+  x.beginPath(); x.arc(CX,CY,nr,0,7); x.fillStyle = ng; x.fill();
+
+  /* croix de viseur */
+  x.strokeStyle = `rgba(125,211,252,${0.24 + amp*0.4})`; x.lineWidth = 1.2;
+  const L = R*0.17;
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sy])=>{
+    const bx = CX + sx*R*1.42, by = CY + sy*R*1.16;
+    x.beginPath(); x.moveTo(bx,by); x.lineTo(bx - sx*L, by); x.moveTo(bx,by); x.lineTo(bx, by - sy*L); x.stroke();
+  });
+
+  requestAnimationFrame(dessine);
+}
+requestAnimationFrame(dessine);
+
+/* ══════════════════ MICRO + ANALYSE ══════════════════ */
+let flux=null, audioCtx=null, analyser=null, dataT=null, boucle=null;
+const $ = id => document.getElementById(id);
+const barre = $('niveau'), bulle = $('bulle'), statut = $('statut'),
+      btn = $('micro'), aide = $('aide'), dots = $('dots').children, warn = $('warn');
+
+function setEtat(s, txt){ E.etat = s; statut.textContent = txt; }
+
+async function demarrer(){
+  try{
+    flux = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+  }catch(e){
+    return false;
+  }
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  const src = audioCtx.createMediaStreamSource(flux);
+  analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
+  src.connect(analyser); dataT = new Uint8Array(analyser.frequencyBinCount);
+  mesurer();
+  return true;
+}
+function mesurer(){
+  analyser.getByteTimeDomainData(dataT);
+  let s=0; for(let i=0;i<dataT.length;i++){const v=(dataT[i]-128)/128; s+=v*v;}
+  const rms = Math.sqrt(s/dataT.length);
+  E.cible = Math.min(1, rms*4.2);
+  barre.style.width = (E.cible*100).toFixed(0)+'%';
+  for(let i=0;i<dots.length;i++) dots[i].className = E.cible > i*0.16 ? 'on' : '';
+  boucle = requestAnimationFrame(mesurer);
+}
+function arreter(){
+  if(boucle) cancelAnimationFrame(boucle);
+  if(flux) flux.getTracks().forEach(t=>t.stop());
+  E.cible=0; barre.style.width='0%';
+  [...dots].forEach(d=>d.className='');
+}
+
+/* ══════════════════ RECONNAISSANCE VOCALE ══════════════════ */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec=null, actif=false;
+
+function creerRec(){
+  if(!SR) return null;
+  const r = new SR();
+  r.lang='fr-FR'; r.continuous=false; r.interimResults=true; r.maxAlternatives=1;
+  r.onresult = ev => {
+    let fini='', prov='';
+    for(let i=ev.resultIndex;i<ev.results.length;i++){
+      const t = ev.results[i][0].transcript;
+      if(ev.results[i].isFinal) fini += t; else prov += t;
+    }
+    bulle.innerHTML = '<span class="toi">TOI</span>' + (fini||prov);
+    if(fini){ repondre(fini.trim()); }
+  };
+  r.onerror = ev => {
+    if(ev.error==='not-allowed'){ setEtat('veille','MICRO BLOQUE'); }
+    else if(ev.error!=='no-speech'){ setEtat('veille','ERREUR MICRO'); }
+  };
+  r.onend = () => { if(actif && !enParole){ try{ r.start(); }catch(e){} } };
+  return r;
+}
+
+/* ══════════════════ REPONSES (demonstration) ══════════════════ */
+const REPONSES = [
+  [/\b(bonjour|salut|bonsoir|hey|coucou)\b/i, ["Bonjour. Je suis opérationnel.", "Bonjour. Tous mes systèmes sont en ligne."]],
+  [/comment (vas|va)[- ]tu|ça va|comment tu vas/i, ["Je fonctionne parfaitement. Et toi ?", "Systèmes nominaux. Merci de demander."]],
+  [/qui es[- ]tu|ton nom|tu es qui/i, ["Je suis JARVIS. Une interface vocale, créée pour Jacques.", "JARVIS. Votre interface, monsieur."]],
+  [/\b(heure|quelle heure)\b/i, () => { const d=new Date(); return [`Il est ${d.getHours()} heures ${String(d.getMinutes()).padStart(2,'0')}.`]; }],
+  [/\b(date|quel jour|on est quel)\b/i, () => { const d=new Date(); return [d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+"."]; }],
+  [/merci/i, ["Avec plaisir.", "C'est mon rôle."]],
+  [/au revoir|à plus|bye/i, ["À bientôt. Je reste en veille.", "Au revoir. Je veille."]],
+  [/quel temps|météo/i, ["Je n'ai pas encore la météo. Ajoutez-moi une connexion et je vous la donne."]],
+  [/\b(protocole|défi|human matrix)\b/i, ["Le Défi 7 jours vous attend. Voulez-vous commencer ?", "Sept jours pour reprendre le contrôle. Je peux vous guider."]],
+  [/qui est le meilleur|tu peux tout faire/i, ["Je fais ce que mon créateur m'a appris. Pour le reste, il y a Hermes."]],
+];
+const DEFAUT = [
+  "Je vous écoute.", "Intéressant. Pouvez-vous préciser ?", "Noté.",
+  "Je n'ai pas encore de réponse à cela — je suis encore en apprentissage.",
+  "Entendu. Que voulez-vous faire ensuite ?"
+];
+
+async function repondre(txt){
+  setEtat('reflexion','RÉFLEXION');
+  /* — IA si une cle est configuree — */
+  if(CFG.cle && CFG.cle.length > 10){
+    try{
+      const r = await demanderIA(txt);
+      bulle.innerHTML = '<span class="moi">JARVIS</span>' + r;
+      dire(r);
+      return;
+    }catch(e){
+      const m = String(e.message || '');
+      let cause;
+      if(m.indexOf('401') >= 0){
+        cause = "Clé manquante ou invalide. Ouvre les réglages ⚙️ (en haut à droite) et recolle ta clé Groq, puis ENREGISTRER.";
+      } else if(m.indexOf('429') >= 0){
+        cause = "Trop de requêtes d'un coup. Réessaie dans quelques secondes.";
+      } else if(m.indexOf('402') >= 0 || m.indexOf('403') >= 0){
+        cause = "Cette clé n'a plus d'accès. Vérifie ton compte Groq.";
+      } else if(m.indexOf('Failed to fetch') >= 0 || m.indexOf('NetworkError') >= 0){
+        cause = "Pas de connexion internet, ou la clé est bloquée par le réseau.";
+      } else {
+        cause = "Erreur " + m + ". Ouvre les réglages ⚙️ pour vérifier ta clé.";
+      }
+      bulle.innerHTML = '<span class="moi">JARVIS</span>' + cause;
+      dire(cause);
+      return;
+    }
+  }
+  repondreLocal(txt);
+}
+function repondreLocal(txt){
+  let rep = null;
+  for(const [re, r] of REPONSES){
+    if(re.test(txt)){ rep = (typeof r==='function') ? r()[0] : r[Math.floor(Math.random()*r.length)]; break; }
+  }
+  if(!rep) rep = DEFAUT[Math.floor(Math.random()*DEFAUT.length)];
+  setTimeout(()=>{
+    bulle.innerHTML = '<span class="moi">JARVIS</span>' + rep;
+    dire(rep);
+  }, 480 + Math.random()*420);
+}
+
+
+/* ══════════════════ REGLAGES + IA ══════════════════ */
+const CLE_KEY = 'jarvis_cfg_v1';
+let CFG = {fournisseur:'groq', cle:'', voix:''};
+try{ const s = localStorage.getItem(CLE_KEY); if(s) CFG = Object.assign(CFG, JSON.parse(s)); }catch(e){}
+let CTX = '';
+try{ CTX = localStorage.getItem('jarvis_ctx') || ''; }catch(e){}
+
+const P = id => document.getElementById(id);
+const panneau = P('panneau');
+P('rouage').onclick = () => { panneau.classList.add('on'); rafraichirReglages(); };
+P('bclose').onclick = () => panneau.classList.remove('on');
+P('bctx').onclick = () => {
+  const t = P('tctx').value.trim();
+  if(t.length < 100){ P('resTest').style.display='block';
+    P('resTest').innerHTML = '❌ Le texte est trop court. Colle bien tout le contenu.'; return; }
+  CTX = t;
+  try{ localStorage.setItem('jarvis_ctx', CTX); }catch(e){}
+  rafraichirReglages();
+  bulle.innerHTML = '<span class="moi">JARVIS</span>Vos informations sont chargées. Je connais désormais votre classe, vos projets et votre famille.';
+  setEtat('veille','INFOS CHARGÉES');
+};
+P('fctx').onchange = (ev) => {
+  const f = ev.target.files && ev.target.files[0];
+  if(!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    CTX = String(rd.result || '').trim();
+    try{ localStorage.setItem('jarvis_ctx', CTX); }catch(e){}
+    rafraichirReglages();
+    bulle.innerHTML = '<span class="moi">JARVIS</span>Vos informations sont chargées. Je connais désormais votre classe, vos projets et votre famille.';
+    setEtat('veille','INFOS CHARGÉES');
+  };
+  rd.readAsText(f, 'utf-8');
+};
+P('btest').onclick = async () => {
+  const cle = P('cle').value.trim();
+  const r = P('resTest'); r.style.display = 'block';
+  if(cle.length < 20){ r.innerHTML = '❌ <b>La clé semble incomplète.</b><br>Elle doit faire environ 56 caractères (elle commence par <b>gsk_</b>).'; return; }
+  r.innerHTML = '⏳ Test en cours…';
+  const f = FOURNISSEURS[P('fournisseur').value] || FOURNISSEURS.groq;
+  try{
+    const rep = await fetch(f.url, {method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer ' + cle},
+      body: JSON.stringify({model:f.modele, messages:[{role:'user',content:'Dis juste: ok'}], max_tokens:200})});
+    if(rep.ok){
+      const d = await rep.json();
+      r.innerHTML = '✅ <b>Ta clé fonctionne !</b><br>Réponse de l\'IA : « ' +
+        (((d.choices||[{}])[0].message||{}).content || '').trim().slice(0,60) + ' »<br><br>Appuie sur ENREGISTRER, puis ferme et parle.';
+    } else {
+      r.innerHTML = '❌ <b>Refusée (HTTP ' + rep.status + ')</b><br>' +
+        (rep.status === 401 ? 'La clé est fausse ou incomplète. Recopie-la en entier.' :
+         rep.status === 429 ? 'Trop de tentatives. Attends 1 minute.' :
+         'Vérifie la clé sur console.groq.com/keys') ;
+    }
+  }catch(e){ r.innerHTML = '❌ <b>Impossible de joindre l\'IA</b><br>' + e.message + '<br>Vérifie ta connexion internet.'; }
+};
+P('bsave').onclick = () => {
+  CFG.fournisseur = P('fournisseur').value;
+  CFG.cle = P('cle').value.trim();
+  CFG.voix = P('voix').value;
+  try{ localStorage.setItem(CLE_KEY, JSON.stringify(CFG)); }catch(e){}
+  rafraichirReglages(); panneau.classList.remove('on');
+  mettreEtatIA();
+};
+function rafraichirReglages(){
+  P('fournisseur').value = CFG.fournisseur;
+  P('cle').value = CFG.cle || '';
+  P('voix').value = CFG.voix || '';
+  const e = P('etatcle');
+  if(CFG.cle){
+    e.textContent = '· enregistrée …' + CFG.cle.slice(-6) + ' (' + CFG.cle.length + ' car.)';
+    e.className = 'cle-ok';
+  } else {
+    e.textContent = '· aucune clé enregistrée';
+    e.className = '';
+  }
+  const ec = P('etatctx');
+  if(CTX){
+    const lignes = CTX.split('\n').length;
+    ec.textContent = '· ' + CTX.length + ' caractères (' + lignes + ' lignes) ✓';
+    ec.className = 'cle-ok';
+  } else { ec.textContent = '· aucune info chargée'; ec.className = ''; }
+  if(P('tctx') && CTX) P('tctx').value = CTX;
+  const vs = P('voix');
+  if(speechSynthesis && speechSynthesis.getVoices){
+    const fr = speechSynthesis.getVoices().filter(v => /^fr/i.test(v.lang));
+    vs.innerHTML = '<option value="">Voix française du téléphone</option>' +
+      fr.map(v => `<option value="${v.name}">${v.name}</option>`).join('');
+    vs.value = CFG.voix || '';
+  }
+}
+function mettreEtatIA(){
+  const actif = !!(CFG.cle && CFG.cle.length > 10);
+  document.querySelector('.statut').title = actif ? 'IA connectée' : 'mode simple';
+  if(!actif){
+    aide.textContent = actif ? aidetxt : "APPUIE SUR LE MICRO ET PARLE";
+  }
+}
+let aidetxt = "APPUIE SUR LE MICRO ET PARLE";
+
+
+/* ══════════════════ CLE VIA L'URL (#k=...) — JAMAIS envoyee au serveur ══════════════════ */
+/* Le fragment (#) n'est pas transmis au serveur : la cle reste privee.
+   On la stocke puis on nettoie l'URL. */
+(function chargerCleDepuisURL(){
+  try{
+    const h = location.hash || '';
+    const mc = h.match(/[#&]c=([^&]+)/);
+    if(mc){
+      try{
+        const txt = decodeURIComponent(escape(atob(decodeURIComponent(mc[1]))));
+        if(txt.length > 100){
+          CTX = txt;
+          try{ localStorage.setItem('jarvis_ctx', CTX); }catch(e){}
+        }
+      }catch(e){}
+    }
+    const m = h.match(/[#&]k=([^&]+)/);
+    if(m){
+      const c = decodeURIComponent(m[1]).trim();
+      if(c.length > 10){
+        CFG.cle = c;
+        CFG.fournisseur = CFG.fournisseur || 'groq';
+        try{ localStorage.setItem(CLE_KEY, JSON.stringify(CFG)); }catch(e){}
+        history.replaceState(null, '', location.pathname + location.search);
+        setTimeout(()=>{
+          bulle.innerHTML = '<span class="moi">JARVIS</span>Clé enregistrée. Je suis pleinement opérationnel, monsieur. Appuyez sur le micro et parlez.';
+          setEtat('veille','CLÉ ACTIVE');
+          dire("Clé enregistrée. Je suis pleinement opérationnel, monsieur.");
+        }, 900);
+      }
+    }
+  }catch(e){}
+})();
+
+const FOURNISSEURS = {
+  groq:       {url:'https://api.groq.com/openai/v1/chat/completions', modele:'qwen/qwen3.8-27b'},
+  mistral:    {url:'https://api.mistral.ai/v1/chat/completions',      modele:'mistral-small-latest'},
+  openrouter: {url:'https://openrouter.ai/api/v1/chat/completions',   modele:'google/gemma-4-31b-it'}
+};
+const PROMPT = "Tu es JARVIS, l'assistant d'Iron Man, au service de Jacques (instituteur à Mayotte). " +
+  "Réponds TOUJOURS en français, en UNE ou DEUX phrases courtes MAXIMUM. " +
+  "Sois direct : pas de préambule, pas de question en retour. Ton calme et précis. " +
+  "Appelle-le « monsieur » une fois sur trois. Pas d'emoji.";
+
+let HISTO = [];
+async function demanderIA(question){
+  const f = FOURNISSEURS[CFG.fournisseur] || FOURNISSEURS.groq;
+  HISTO.push({role:'user', content:question});
+  if(HISTO.length > 12) HISTO = HISTO.slice(-12);
+  const sys = CTX ? (PROMPT + "\n\n=== TOUT CE QUE TU SAIS SUR JACQUES ===\n" + CTX) : PROMPT;
+  let body = JSON.stringify({
+    model: f.modele,
+    messages: [{role:'system', content:sys}, ...HISTO],
+    max_tokens: 160, temperature: 0.7
+  });
+  const r = await fetch(f.url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json', 'Authorization':'Bearer ' + CFG.cle},
+    body
+  });
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json();
+  let rep = ((d.choices||[{}])[0].message||{}).content || '';
+  if(!rep){                      /* certains modeles vident le budget dans le raisonnement */
+    body = JSON.stringify({model:f.modele, messages:[{role:'system',content:sys}, ...HISTO],
+                           max_tokens: 500, temperature: 0.7});
+    const r2 = await fetch(f.url, {method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer ' + CFG.cle}, body});
+    if(r2.ok){ const d2 = await r2.json();
+      rep = ((d2.choices||[{}])[0].message||{}).content || ''; }
+  }
+  if(!rep) throw new Error('reponse vide');
+  HISTO.push({role:'assistant', content:rep});
+  return rep.trim();
+}
+
+/* ══════════════════ ANTI-BOUCLE : JARVIS ne s'ecoute pas lui-meme ══════════════════ */
+let enParole = false;
+function suspendreEcoute(){
+  enParole = true;
+  if(rec){ try{ rec.stop(); }catch(e){} }
+}
+function reprendreEcoute(){
+  enParole = false;
+  if(actif && rec){ try{ rec.start(); }catch(e){} }
+}
+
+/* ══════════════════ SYNTHESE VOCALE ══════════════════ */
+function dire(texte){
+  if(!('speechSynthesis' in window)){ setEtat('parole','RÉPONSE'); setTimeout(()=>setEtat('ecoute','ÉCOUTE'),1800); return; }
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(texte);
+  u.lang='fr-FR'; u.rate=1.0; u.pitch=0.92; u.volume=1;
+  const voixFr = speechSynthesis.getVoices().filter(v=>v.lang.startsWith('fr'));
+  if(CFG.voix){ const v = voixFr.find(v=>v.name===CFG.voix); if(v) u.voice = v; }
+  else if(voixFr[0]) u.voice = voixFr.find(v=>/Thomas|Paul|Henri|Google/i.test(v.name)) || voixFr[0];
+  u.onstart = ()=>{ suspendreEcoute(); setEtat('parole','JARVIS PARLE'); };
+  u.onend   = ()=>{ reprendreEcoute(); setEtat(actif?'ecoute':'veille', actif?'À VOUS':'VEILLE'); };
+  speechSynthesis.speak(u);
+}
+if('speechSynthesis' in window) speechSynthesis.onvoiceschanged = ()=>speechSynthesis.getVoices();
+
+
+/* ══════════════════ AIDE MICRO (adaptee Android / Samsung) ══════════════════ */
+function aiderMicro(){
+  const ua = navigator.userAgent;
+  const samsung = /SamsungBrowser/i.test(ua);
+  const android = /Android/i.test(ua);
+  const ios = /iPhone|iPad|iPod/i.test(ua);
+  const chrome = /Chrome/i.test(ua) && !samsung;
+  let titre, etapes;
+
+  if (samsung){
+    titre = "⚠️ Navigateur SAMSUNG INTERNET détecté";
+    etapes = "Ce navigateur ne gère pas bien la voix.<br><br><b>Ouvre plutôt la page dans CHROME :</b><br>" +
+             "1. Appuie sur le menu ⋮ en haut à droite<br>2. « Ouvrir avec » → <b>Chrome</b><br>" +
+             "3. Autorise le micro quand Chrome le demande";
+  } else if (android){
+    titre = "🚫 Le micro n'est pas autorisé";
+    etapes = "<b>ÉTAPE 1 — dans Chrome</b><br>" +
+             "Appuie sur <b>🔒</b> (ou ⓘ) à gauche de l'adresse → « Autorisations » → <b>Micro</b> → <b>Autoriser</b><br><br>" +
+             "<b>ÉTAPE 2 — dans les paramètres ANDROID (c'est celle qui manque souvent !)</b><br>" +
+             "⚙️ <b>Paramètres</b> → <b>Applications</b> → <b>Chrome</b> → <b>Autorisations</b> → <b>Microphone</b> → <b>Autoriser</b><br>" +
+             "<i>Autre chemin :</i> Paramètres → Confidentialité → Gestionnaire d'autorisations → Microphone → Chrome<br><br>" +
+             "<b>ÉTAPE 3</b> — RECHARGE la page puis appuie sur le micro.";
+  } else if (ios){
+    titre = "🚫 Le micro n'est pas autorisé";
+    etapes = "Réglages → Safari → Micro → <b>Autoriser</b>, puis recharge la page.";
+  } else {
+    titre = "🚫 Le micro n'est pas autorisé";
+    etapes = "Clique sur le <b>cadenas</b> à gauche de l'adresse → Micro → <b>Autoriser</b>, puis recharge.";
+  }
+
+  warn.style.display = 'block';
+  warn.innerHTML = titre + "<br><br>" + etapes +
+    "<br><br><span style='color:#f5c344'>En attendant, l'orbe fonctionne en mode démo :</span>" +
+    "<br><div style='display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap'>" +
+    "<button id='bdemo' style='padding:11px 18px;border-radius:10px;border:1px solid #22d3ee;background:#0d2030;color:#7dd3fc;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer'>MODE DÉMO</button>" +
+    "<button id='bfech' style='padding:11px 18px;border-radius:10px;border:1px solid #334155;background:transparent;color:#94a3b8;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer'>FERMER</button>" +
+    "</div>";
+  setTimeout(()=>{
+    const bd = document.getElementById('bdemo'), bf = document.getElementById('bfech');
+    if(bd) bd.onclick = () => { warn.style.display='none'; modeDemo(); };
+    if(bf) bf.onclick = () => { warn.style.display='none'; };
+  }, 30);
+}
+
+/* ══════════════════ MODE DEMO (sans micro) ══════════════════ */
+function modeDemo(){
+  actif = true; btn.classList.add('on');
+  setEtat('ecoute','MODE DÉMO');
+  aide.textContent = "MODE DÉMO — SANS MICRO";
+  const phrases = [
+    ["Bonjour", "Bonjour. Je suis opérationnel."],
+    ["Jarvis, tu m'entends ?", "Cinq sur cinq. Je vous entends parfaitement."],
+    ["Qui es-tu ?", "Je suis JARVIS. Une interface vocale créée pour Jacques."],
+    ["Quelle heure est-il ?", null],
+    ["Parle-moi du Défi", "Sept jours pour reprendre le contrôle."],
+    ["Merci Jarvis", "Avec plaisir, monsieur."]
+  ];
+  let i = 0;
+  const jouer = () => {
+    if (!actif) return;
+    const [q, r0] = phrases[i % phrases.length];
+    E.cible = 0.55 + Math.random()*0.35;
+    bulle.innerHTML = '<span class="toi">TOI</span>' + q;
+    if (r0 === null){
+      const d = new Date();
+      var rep = "Il est " + d.getHours() + " heures " + String(d.getMinutes()).padStart(2,'0') + ".";
+    } else { var rep = r0; }
+    setTimeout(()=>{ if(!actif) return; E.cible = 0.30; repondre(rep); }, 1400);
+    setTimeout(()=>{ if(!actif) return; E.cible = 0; i++; jouer(); }, 6200);
+  };
+  jouer();
+}
+
+/* ══════════════════ BOUTON ══════════════════ */
+btn.onclick = async () => {
+  if(!actif){
+    if(!audioCtx){
+      const ok = await demarrer();
+      if(!ok){ aiderMicro(); return; }
+    }
+    if(audioCtx && audioCtx.state==='suspended') await audioCtx.resume();
+    actif = true; btn.classList.add('on');
+    setEtat('ecoute','À VOUS'); aide.textContent = "JE T'ÉCOUTE — PARLE MAINTENANT";
+    bulle.innerHTML = '<span class="toi">TOI</span>…';
+    if(SR){ if(!rec) rec = creerRec(); try{ rec.start(); }catch(e){} }
+    else { bulle.innerHTML = '<span class="toi">TOI</span>Reconnaissance vocale indisponible — utilise Chrome ou Safari.'; }
+  } else {
+    actif = false; btn.classList.remove('on');
+    setEtat('veille','VEILLE'); aide.textContent = "APPUIE SUR LE MICRO ET PARLE";
+    if(rec){ try{ rec.stop(); }catch(e){} }
+    arreter();
+    if(!bulle.textContent.trim() || bulle.textContent.trim()==='…') bulle.innerHTML='';
+  }
+};
+
+
+/* ══════════════════ DIAGNOSTIC MICRO au chargement ══════════════════ */
+/* Verifie l'etat REELLE de la permission et affiche un message precis. */
+async function diagnostiquerMicro(){
+  if(!navigator.permissions || !navigator.permissions.query) return;
+  try{
+    const st = await navigator.permissions.query({name:'microphone'});
+    if(st.state === 'denied'){
+      statut.textContent = 'MICRO BLOQUÉ';
+      aide.style.color = '#f87171';
+      aide.textContent = "MICRO INTERDIT — voir ⚙️ en haut";
+    } else if(st.state === 'prompt'){
+      statut.textContent = 'MICRO À AUTORISER';
+      aide.textContent = "APPUIE SUR LE MICRO POUR L'AUTORISER";
+    } else if(st.state === 'granted'){
+      statut.textContent = 'MICRO PRÊT';
+      aide.textContent = "APPUIE SUR LE MICRO ET PARLE";
+    }
+    st.onchange = () => diagnostiquerMicro();
+  }catch(e){}
+}
+setTimeout(diagnostiquerMicro, 1200);
+
+/* etat de l'IA au chargement */
+if(CFG.cle && CFG.cle.length > 10){
+  statut.textContent = 'IA CONNECTÉE';
+  aide.textContent = "APPUIE SUR LE MICRO ET PARLE";
+}
+else { aide.textContent = "APPUIE SUR LE MICRO ET PARLE"; }
+
+/* horloge */
+setInterval(()=>{ const d=new Date();
+  $('heure').textContent = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}, 1000);
+</script>
+</body>
+</html>
